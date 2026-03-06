@@ -274,8 +274,7 @@ NLP
 
 Darshil Shetty
 
-Integrated MSc–PhD (Mathematics)
-Indian Institute of Science (IISc)
+
 
 ---
 
