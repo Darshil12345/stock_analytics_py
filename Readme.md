@@ -221,7 +221,7 @@ uvicorn main:api --host 0.0.0.0 --port 10000
 Dashboard will be available at:
 
 ```
-https://your-app.onrender.com/dashboard
+https://your-app.onrender.com/dashboard](https://stock-analytics-py.onrender.com
 ```
 
 ---
