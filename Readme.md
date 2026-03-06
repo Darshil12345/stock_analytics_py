@@ -1,4 +1,4 @@
-# 📊 Global Stock Analytics Platform
+# 📊 Global Stock Analytics Platform:https://stock-analytics-py.onrender.com/#
 
 A **FastAPI + Dash powered analytics platform** for exploring global stock market data, building datasets, performing exploratory analysis, running machine learning predictions, and analyzing financial news sentiment.
 
