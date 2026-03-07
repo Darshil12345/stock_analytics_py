@@ -45,15 +45,26 @@ def run_upload(
 
 
 def _enrich(df: pd.DataFrame, custom_stopwords: set[str] | None) -> pd.DataFrame:
-    sw = STOPWORDS_SET.copy()
+    # Normalise custom stopwords — stem them too so e.g. "markets" → "market"
+    extra_sw = None
     if custom_stopwords:
-        sw.update(w.lower() for w in custom_stopwords if w.strip())
+        from utils.preprocessing import _stem
+        extra_sw = {_stem(w.lower()) for w in custom_stopwords if w.strip()}
+        extra_sw |= {w.lower() for w in custom_stopwords if w.strip()}  # also raw form
 
-    # Sentiment pass: keep sentiment words to avoid muting signal
-    sw_sent = sw - POSITIVE_WORDS - NEGATIVE_WORDS
+    # For sentiment scoring: use base stopwords MINUS sentiment signal words
+    # Custom stopwords are passed separately so they are ALWAYS removed
+    sw_sent = STOPWORDS_SET - POSITIVE_WORDS - NEGATIVE_WORDS
 
-    df["sent_text"] = df["raw_text"].apply(lambda x: preprocess_text(x, sw_sent))
-    df["wc_text"]   = df["raw_text"].apply(lambda x: preprocess_text(x, COMMON_STOPWORDS))
+    # For wordcloud: use only common stopwords (lighter filter, more visual variety)
+    sw_wc = COMMON_STOPWORDS
+
+    df["sent_text"] = df["raw_text"].apply(
+        lambda x: preprocess_text(x, sw_sent, extra_stopwords=extra_sw)
+    )
+    df["wc_text"] = df["raw_text"].apply(
+        lambda x: preprocess_text(x, sw_wc, extra_stopwords=extra_sw)
+    )
     df[["sentiment", "score"]] = df["sent_text"].apply(
         lambda x: pd.Series(simple_sentiment(x))
     )
