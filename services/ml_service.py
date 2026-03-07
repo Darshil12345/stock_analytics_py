@@ -229,53 +229,20 @@ def compute_shap(
         )
         bar_fig.update_layout(yaxis={"categoryorder": "total ascending"})
 
-        # ── Waterfall with base value (E[f(x)]) and final value (f(x)) ───────
-        sv1      = test_sv[0]                        # shape (n_features,)
-        top_idx  = np.argsort(np.abs(sv1))[-15:][::-1]
-
-        # Base value = mean prediction probability across training set
-        try:
-            base_value = float(explainer.expected_value)
-            if isinstance(explainer.expected_value, (list, np.ndarray)):
-                base_value = float(explainer.expected_value[1])
-        except Exception:
-            base_value = 0.5
-
-        final_value = base_value + float(sv1.sum())
-
-        wf_features  = [feat_names[i] for i in top_idx]
-        wf_shap_vals = sv1[top_idx]
-
-        # Build waterfall: base → features → total
-        measures = ["absolute"] + ["relative"] * len(wf_features) + ["total"]
-        y_labels = [f"Base value\n({base_value:.3f})"] + wf_features + [f"f(x) = {final_value:.3f}"]
-        x_values = [base_value] + list(wf_shap_vals) + [final_value]
-
-        # Color: green for positive contributions, red for negative
-        colors = ["#718096"]  # base value = grey
-        for v in wf_shap_vals:
-            colors.append("#48bb78" if v >= 0 else "#fc8181")
-        colors.append("#667eea")  # final prediction = purple
-
+        sv1     = test_sv[0]
+        top_idx = np.argsort(np.abs(sv1))[-15:][::-1]
+        wf_df   = pd.DataFrame({
+            "Feature":    [feat_names[i] for i in top_idx],
+            "SHAP Value": sv1[top_idx],
+        })
         wf_fig = go.Figure(go.Waterfall(
             orientation="h",
-            measure=measures,
-            y=y_labels,
-            x=x_values,
-            connector={"line": {"color": "rgba(63,63,63,0.4)", "width": 1}},
-            increasing={"marker": {"color": "#48bb78"}},
-            decreasing={"marker": {"color": "#fc8181"}},
-            totals={"marker":    {"color": "#667eea"}},
+            measure=["relative"] * len(wf_df),
+            y=wf_df["Feature"],
+            x=wf_df["SHAP Value"],
+            connector={"line": {"color": "rgb(63,63,63)"}},
         ))
-        wf_fig.add_vline(x=0.5, line_dash="dash", line_color="gray",
-                         annotation_text="Decision boundary (0.5)",
-                         annotation_position="top")
-        wf_fig.update_layout(
-            title=f"SHAP Waterfall — Sample #0 | Base: {base_value:.3f} → Prediction: {final_value:.3f}",
-            xaxis_title="Probability of ↑ Up",
-            xaxis=dict(range=[0, 1]),
-            height=500,
-        )
+        wf_fig.update_layout(title="SHAP Waterfall — Sample #0", xaxis_title="SHAP Value")
 
         return shap_df, bar_fig, wf_fig
 
@@ -322,44 +289,15 @@ def compute_lime(
             .sort_values("abs_w", ascending=False)
             .drop(columns="abs_w")
         )
-
-        # Intercept and prediction probabilities
-        intercept   = exp.intercept[1]
-        local_pred  = exp.local_pred[0]
-        actual_prob = clf.predict_proba(Xte_t[idx:idx+1])[0][1]
-
         colors = ["#48bb78" if w > 0 else "#fc8181" for w in lime_df["LIME Weight"]]
-
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
+        fig = go.Figure(go.Bar(
             x=lime_df["LIME Weight"], y=lime_df["Feature"],
             orientation="h", marker_color=colors,
-            name="Feature contribution",
         ))
-        fig.add_vline(x=intercept, line_dash="dot", line_color="#718096", line_width=2,
-                      annotation_text=f"Base rate: {intercept:.3f}",
-                      annotation_position="top left",
-                      annotation_font_color="#718096")
-        fig.add_vline(x=0, line_dash="solid", line_color="black", line_width=1)
-
-        pos_sum = lime_df[lime_df["LIME Weight"] > 0]["LIME Weight"].sum()
-        neg_sum = lime_df[lime_df["LIME Weight"] < 0]["LIME Weight"].sum()
-
         fig.update_layout(
-            title=(
-                f"LIME Explanation — Test Sample #{idx} | "
-                f"Model P(Up): {actual_prob:.3f} | "
-                f"LIME pred: {local_pred:.3f} | "
-                f"{'UP' if actual_prob >= 0.5 else 'DOWN'}"
-            ),
-            xaxis_title="LIME Weight  (green = pushes Up, red = pushes Down)",
+            title=f"LIME Explanation — Test Sample #{idx}",
+            xaxis_title="LIME Weight",
             yaxis={"categoryorder": "total ascending"},
-            height=500,
-            annotations=[
-                dict(x=0.02, y=1.06, xref="paper", yref="paper",
-                     text=f"Green sum: +{pos_sum:.4f}  |  Red sum: {neg_sum:.4f}",
-                     showarrow=False, font=dict(size=11)),
-            ]
         )
         return lime_df, fig
 
